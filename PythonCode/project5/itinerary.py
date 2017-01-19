@@ -1,0 +1,178 @@
+# itinerary.py
+# Kevin Dalle
+# kdalle1@stu.parkland.edu
+# CSC 220, Spring 2015
+
+from graph import *
+from shortest_paths import *
+from string import *
+                                                                                 
+class Itinerary:
+    """This class will take file and build a distance graph. Then you will be
+       able to choose a starting city and a destination to build an itinerary"""
+    
+    def __init__(self, file = "eurail.txt"):
+        self.map = Graph()
+        self.vertices = dict() #Will keep the vertices in a dict to be returned
+                               #and used for lookups and function calls that
+                               #require vertex objects.
+        file = open(file, "r")
+        for line in file:
+            line.lower()#Strips the lines of unneeded items.
+            line = line.replace(",", " ")
+            line = line.replace(":"," ")
+            line = line.replace("\n", "")
+            items = line.split(" ")
+            items[0] = items[0].lower()#Converts all names to lowercase so that
+                                       #Users do not have to worry about spel-
+                                       #ling.
+            items[1] = items[1].lower()
+            edge = int((60 * int(items[2]))) + int(items[3])#Converts the ori-
+                                                            #ginal time format
+                                                            #to just minutes.
+            #Next block will be checking the vertex dictionary to make sure 
+            #that edges and vertices are not added twice in the graph.
+            if items[0] not in self.vertices.keys() and \
+            items[1] not in self.vertices.keys():
+                v1 = self.map.insert_vertex(items[0])
+                v2 = self.map.insert_vertex(items[1])
+                self.vertices[items[0]] = v1
+                self.vertices[items[1]] = v2
+                self.map.insert_edge(v1,v2,edge)
+             
+            elif items[0] in self.vertices.keys() and \
+            items[1] not in self.vertices.keys():
+                v2 = self.map.insert_vertex(items[1])
+                self.vertices[items[1]] = v2
+                self.map.insert_edge(self.vertices[items[0]],v2, edge)
+                
+            elif items[0] not in self.vertices.keys() and \
+            items[1] in self.vertices.keys():
+                v1 = self.map.insert_vertex(items[0])
+                self.vertices[items[0]] = v1
+                self.map.insert_edge(v1,self.vertices[items[1]], edge)
+                
+            elif items[0] in self.vertices.keys() and \
+            items[1] in self.vertices.keys():
+                self.map.insert_edge(self.vertices[items[0]],\
+                                     self.vertices[items[1]],edge)
+                
+
+    def get_vertices(self):
+        """Returns a dictionary of vertices with a string of the vertices name
+           as the key."""
+        return self.vertices
+
+
+    def plan(self, start, end):
+        """Builds the travel plan using the djikstras algorithm."""
+        dmap = shortest_path_lengths(self.map, start)
+        time = dmap[end]#Grabs the time to get to the destination.
+        paths = shortest_path_tree(self.map, start, dmap)
+        path = [end.element()]#Starts a list to be returned containing the path
+        stop = end.element()#Will signal we have reached the origination
+        ecount = self.map.edge_count()
+        k = 0#Will make sure that it is not stuck in the loop if they are not
+             #connected.
+        while str(start.element()) != str(stop) and k < ecount:
+            location = paths[self.vertices[str(stop)]]
+            cities = location.endpoints()
+            if str(stop) == str(cities[0].element()):#Compares the endpoints to
+                                                     #see which one to add to 
+                                                     #the path.
+                path.append(str(cities[1].element()))
+                stop = str(cities[1].element())
+            elif str(stop) == str(cities[1].element()):
+                path.append(str(cities[0].element()))
+                stop = str(cities[0].element())
+            k += 1
+        i = len(path) - 1
+        truepath = list()
+        while i >= 0:#Reverses the list so it is in the correct order.
+           truepath.append(path[i])
+           i -= 1
+        if k >= ecount:
+            return None, None#Returns Nones if they are not connected.
+        else:
+            return truepath, time#Returns the path and time to get there.
+
+    def write_file(self, path):
+        """Writes the vertices and edges in a Graph Viz file format. File is 
+           called Itinerary.gv"""
+        i = 0
+        file = open("Itinerary.gv", "w")
+        file.write("graph { \n")
+        ledge=list()#Creates a edge list so they are not written to the file 
+                    #twice.
+        for i in self.map.edges():
+            k = 0
+            j = str(i)
+            j = j.replace("(", "")#Strips the edge object of unnecesary items.
+            j = j.replace(")", "")
+            j = j.replace(","," ")
+            j = j.split()
+            while k < len(path) - 1:#Different sections so it does not matter
+                                    #what order the vertexes were placed in the
+                                    #edge object.
+                if path[k] == j[0] and path[k+1] == j[1]:
+                    time = int(j[2]) * 60#Converts back to hours and minutes.
+                    hours = time // 3600
+                    mins = time // 60 - hours*60
+                    if k == 0:
+                        w = "  "+str(path[k]).capitalize()+"--"
+                        w += str(path[k+1]).capitalize()
+                        w += ' [label="'+ str(hours) + ':'
+                        w += str("{0:0=2d}".format(mins)) + '"]'
+                        w += '[color="green"]\n' #Marks the Origination.
+                    elif k== len(path) -2:
+                        w = "  "+str(path[k]).capitalize()+"--"
+                        w += str(path[k+1]).capitalize()
+                        w += ' [label="'+ str(hours) + ':'
+                        w += str("{0:0=2d}".format(mins)) + '"]'
+                        w += '[color="blue"]\n' #Marks the Destination.
+                    else:
+                        w = "  "+str(path[k]).capitalize()+"--"
+                        w += str(path[k+1]).capitalize()
+                        w += ' [label="'+ str(hours) + ':'
+                        w += str("{0:0=2d}".format(mins)) + '"]'
+                        w += '[color="red"]\n'
+                    if i not in ledge:
+                        ledge.append(i)
+                        file.write(w)
+                elif path[k] == j[1] and path[k+1] == j[0]:
+                    time = int(j[2]) * 60
+                    hours = time // 3600
+                    mins = time // 60 - hours*60
+                    if k == len(path) - 2:
+                        w = "  "+str(path[k]).capitalize()+"--"
+                        w += str(path[k+1]).capitalize()
+                        w += ' [label="'+ str(hours) + ':'
+                        w += str("{0:0=2d}".format(mins)) + '"]'
+                        w += '[color="blue"]\n'
+                    elif k == 0:
+                        w = "  "+str(path[k]).capitalize()+"--"
+                        w += str(path[k+1]).capitalize()
+                        w += ' [label="'+ str(hours) + ':'
+                        w += str("{0:0=2d}".format(mins)) + '"]'
+                        w += '[color="green"]\n'
+                    else:
+                        w = "  "+str(path[k]).capitalize()+"--"
+                        w += str(path[k+1]).capitalize()
+                        w += ' [label="'+ str(hours) + ':'
+                        w += str("{0:0=2d}".format(mins)) + '"]'
+                        w += '[color="red"]\n'
+                    if i not in ledge:
+                        ledge.append(i)
+                        file.write(w)
+                elif k == len(path) - 2:
+                    time = int(j[2]) * 60
+                    hours = time // 3600
+                    mins = time // 60 - hours*60
+                    w = "  "+str(j[0]).capitalize()+"--"+str(j[1]).capitalize()
+                    w += '[label="' + str(hours) + ':'
+                    w += str("{0:0=2d}".format(mins)) + '"]\n'
+                    if i not in ledge:
+                        ledge.append(i)
+                        file.write(w)
+                k+=1
+        file.write("}")

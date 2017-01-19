@@ -1,0 +1,16 @@
+# project4.py
+# Kevin Dalle
+# kdalle1@stu.parkland.edu
+# CSC 220, Spring 2015
+
+from lib.avl_tree import AVLTreeMap
+from sys import argv
+from string import *
+
+#book = argv[1]
+#book = open(book, "r")
+#for line in book:
+test = "I,Have.Punctuation?HaHA!;:"
+for c in punctuation:  # This is how to remove punctuation from a string
+	test = test.replace(c,"")
+print(test)
